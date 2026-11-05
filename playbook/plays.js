@@ -19,19 +19,13 @@
      dur      seconds to move into this step (default 1.2)
      hold     seconds to pause on this step (default 0.5)
      passAt   0-1, how far through the move the pass/shot leaves (default 0)
-   ===================================================================== */
-/* Shared opening for the Suns set (both endings use it). */
-var SUNS_START = [
-  { note: '1 brings the ball up the right side. 2 on the right wing, 3 in the right corner, 4 on the left block, 5 on the left wing.',
-    o: { 1: [12.6, 9.4], 2: 'rwing', 3: 'rcorner', 4: 'lblock', 5: 'lwing' }, ball: 1, hold: 1.4 },
-  { note: '1 dribbles to the strong side (right).', o: { 1: 'rslot' }, dur: 1.5 },
-  { note: '1 dribbles toward 2. 2 cuts through the lane.', o: { 1: [6.7, 11.3], 2: [2.0, 8.8] }, dur: 1.1 },
-  { note: '2 keeps going to the left corner. 3 comes up from the corner toward 1.', o: { 2: 'lcorner', 3: [5.0, 12.7] }, dur: 1.2 },
-  { note: 'Handoff: 1 hands the ball to 3.', o: { 3: [5.9, 12.2] }, ball: 3, passAt: 0.6, dur: 0.7, hold: 0.6 },
-  { note: '1 clears to the top. 4 comes across and sets a screen for 3.', o: { 1: [8.4, 9.0], 4: [5.9, 10.5] }, screens: [4], dur: 1.3, hold: 0.7 },
-  { note: '3 drives off the screen hard to the basket.', o: { 3: [2.9, 8.8] }, dur: 1.1, hold: 0.4 }
-];
 
+   Choices: a play (or an option) can end in a decision point.
+     choice   the question shown to the kids, e.g. '3 reads the defense'
+     options  up to 4 branches: { label: 'Layup', weight: 1, frames: [...] }
+              each option can have its own choice + options (nested reads).
+              weight = how often Random picks it (default 1).
+   ===================================================================== */
 window.PLAYBOOK = {
   spots: {
     top:     [8.6, 7.5],
@@ -81,21 +75,40 @@ window.PLAYBOOK = {
       name: 'Suns',
       category: 'Offense',
       defense: 'man',
-      description: 'Strong-side handoff to 3, then a screen from 4. 3 drives and finishes at the rim.',
-      frames: SUNS_START.concat([
-        { note: '3 finishes with the layup.', o: { 3: [1.9, 8.2] }, ball: 'rim', passAt: 0.5, dur: 0.8 }
-      ])
-    },
-    {
-      id: 'suns-kick',
-      name: 'Suns – Kick Out',
-      category: 'Offense',
-      defense: 'man',
-      description: 'Same as Suns, but when the defense collapses on the drive, 3 kicks it out for an open shot.',
-      frames: SUNS_START.concat([
-        { note: 'The defense collapses on 3. 3 kicks it out to 2 in the left corner.', ball: 2, dur: 0.9, hold: 0.5 },
-        { note: '2 shoots the open corner three.', ball: 'rim', dur: 1.0 }
-      ])
+      description: 'Strong-side handoff to 3, then a screen from 4. 3 drives and reads the defense: finish or kick out.',
+      frames: [
+        { note: '1 brings the ball up the right side. 2 on the right wing, 3 in the right corner, 4 on the left block, 5 on the left wing.',
+          o: { 1: [12.6, 9.4], 2: 'rwing', 3: 'rcorner', 4: 'lblock', 5: 'lwing' }, ball: 1, hold: 1.4 },
+        { note: '1 dribbles to the strong side (right).', o: { 1: 'rslot' }, dur: 1.5 },
+        { note: '1 dribbles toward 2. 2 cuts toward the basket.', o: { 1: [6.7, 11.3], 2: [2.0, 8.8] }, dur: 1.1 },
+        { note: '2 keeps running to the left corner. 3 comes up from the corner toward 1.', o: { 2: 'lcorner', 3: [5.0, 12.7] }, dur: 1.2 },
+        { note: 'Handoff: 1 hands the ball to 3.', o: { 3: [5.9, 12.2] }, ball: 3, passAt: 0.6, dur: 0.7, hold: 0.6 },
+        { note: '1 runs to the right corner. 4 comes across and sets a screen for 3.', o: { 1: 'rcorner', 4: [5.9, 10.5] }, screens: [4], dur: 1.3, hold: 0.7 },
+        { note: '3 drives off the screen hard to the basket.', o: { 3: [2.9, 8.8] }, dur: 1.1, hold: 0.4 }
+      ],
+      choice: '3 reads the defense: finish or kick out?',
+      options: [
+        { label: 'Layup', frames: [
+          { note: 'Nobody helps. 3 finishes with the layup.', o: { 3: [1.9, 8.2] }, ball: 'rim', passAt: 0.5, dur: 0.8 } ] },
+        { label: 'Find 2 · left corner', frames: [
+          { note: '3 looks for 2 in the left corner.', hold: 0.3 } ],
+          choice: "2 reads the defender: stay for the three or cut back door?",
+          options: [
+            { label: 'Stay · corner three', frames: [
+              { note: "2's defender helps on the drive. 2 stays in the corner and 3 kicks it out.", ball: 2, dur: 1.0, hold: 0.4 },
+              { note: '2 shoots the open corner three.', ball: 'rim', dur: 1.0 } ] },
+            { label: 'Back door cut', frames: [
+              { note: "2's defender turns to watch the ball. 2 cuts back door along the baseline.", o: { 2: [1.3, 5.6] }, dur: 0.9, hold: 0.2 },
+              { note: '3 hits 2 on the cut.', ball: 2, dur: 0.6 },
+              { note: '2 finishes at the rim.', o: { 2: [1.7, 6.8] }, ball: 'rim', passAt: 0.5, dur: 0.7 } ] }
+          ] },
+        { label: 'Kick to 1 · right corner', frames: [
+          { note: "1's defender helps on the drive. 3 kicks it out to 1 in the right corner.", ball: 1, dur: 0.8, hold: 0.4 },
+          { note: '1 shoots the open corner three.', ball: 'rim', dur: 1.0 } ] },
+        { label: 'Kick to 5 · left wing', frames: [
+          { note: "5's defender helps on the drive. 3 kicks it out to 5 on the left wing.", ball: 5, dur: 1.0, hold: 0.4 },
+          { note: '5 shoots the open three.', ball: 'rim', dur: 1.0 } ] }
+      ]
     },
     {
       id: 'sample-give-and-go',

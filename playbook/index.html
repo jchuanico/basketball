@@ -118,7 +118,7 @@ input[type=color]{width:40px;height:34px;border:1px solid var(--line);border-rad
 .ph.set{border-style:solid;color:transparent}
 .hint{font-size:12px;color:var(--muted);margin:0}
 .seg{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
-.seg button{flex:1;border:0;background:var(--panel2);padding:7px 6px;font-size:13px;font-weight:500}
+.seg button{flex:1;white-space:nowrap;border:0;background:var(--panel2);padding:7px 6px;font-size:13px;font-weight:500}
 .seg button + button{border-left:1px solid var(--line)}
 .seg button.on{background:var(--ink);color:var(--panel)}
 
@@ -127,6 +127,19 @@ input[type=color]{width:40px;height:34px;border:1px solid var(--line);border-rad
 .selbox{border:1px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:8px;background:var(--panel2)}
 .confirm{font-size:12px;color:var(--warn)}
 
+#choices{display:flex;flex-direction:column;gap:8px;padding:12px 14px;border-top:1px solid var(--line);background:var(--accent-soft)}
+#choices .q{font-family:var(--display);font-weight:700;font-size:20px;letter-spacing:.03em;text-transform:uppercase}
+#choices .opts{display:flex;flex-wrap:wrap;gap:8px}
+#choices .opt{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:6px 14px 6px 6px;border-radius:999px;border:2px solid var(--line);background:var(--panel);font-weight:600;font-size:15px}
+#choices .opt i{font-style:normal;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;color:#fff;font-family:var(--display);font-size:16px}
+#choices .opt:hover{border-color:var(--ink)}
+#choices .opt.lit{border-color:var(--ink);box-shadow:0 0 0 3px var(--accent)}
+#choices .opt.dim{opacity:.35}
+#pathbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px;color:var(--muted)}
+#pathbar .crumb{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:3px 10px;font-weight:600;color:var(--ink)}
+#pathbar .crumb:hover{border-color:var(--accent)}
+.fchip.br{border-left:3px solid var(--accent)}
+.fchip.fork{color:var(--accent);font-weight:700}
 #modal{position:fixed;inset:0;z-index:20;background:rgba(8,12,16,.55);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px))}
 #modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(640px,100%);max-height:100%;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:10px}
 #modal h2{margin:0;font-family:var(--display);font-size:24px;text-transform:uppercase;letter-spacing:.03em}
@@ -177,11 +190,13 @@ body.present #caption .txt{font-size:22px}
         <defs id="defs"></defs>
         <g id="gCourt"></g>
         <g id="gArrows"></g>
+        <g id="gGhost"></g>
         <g id="gDef"></g>
         <g id="gOff"></g>
         <g id="gBall"></g>
       </svg>
       <div id="caption"><span class="step" id="capStep">Step 1</span><span class="txt" id="capTxt"></span></div>
+      <div id="choices" hidden></div>
     </div>
     <div id="transport">
       <button class="btn icon" id="restartBtn" title="Back to start" aria-label="Back to start"><svg viewBox="0 0 16 16"><path d="M3 2v12M13 2 5 8l8 6z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg></button>
@@ -191,7 +206,9 @@ body.present #caption .txt{font-size:22px}
       <div class="grow"><input type="range" id="scrub" min="0" max="1000" value="0" step="1" aria-label="Timeline"><span id="clock">0.0 / 0.0s</span></div>
       <select class="sm" id="speedSel" aria-label="Speed"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1">1×</option><option value="1.5">1.5×</option></select>
       <button class="btn" id="loopBtn" title="Repeat the play">Loop</button>
+      <div class="seg" id="chooseSeg" title="At a decision point: you pick, or the app picks at random"><button data-v="ask">You pick</button><button data-v="random">Random</button></div>
     </div>
+    <div id="pathbar" hidden></div>
     <div id="frames"></div>
   </section>
 
@@ -244,9 +261,10 @@ const store = {
 /* ---------------- state ---------------- */
 function blankTeam(name, color){ const p = {}; KS.forEach(k => p[k] = {name:'', num:'', photo:''}); return {name, color, players:p}; }
 let teams = store.get('bb.teams', null) || {off: blankTeam('Offense', '#e8590c'), def: blankTeam('Defense', '#1f5fa8')};
-let opts = Object.assign({view:'half', court:'wood', label:'num', names:true, arrows:true, def:'play', speed:1, loop:false}, store.get('bb.opts', {}));
+let opts = Object.assign({view:'half', court:'wood', label:'num', names:true, arrows:true, def:'play', speed:1, loop:false, choose:'ask'}, store.get('bb.opts', {}));
 let myPlays = store.get('bb.plays', []);
 let play = null, F = [], TL = {segs:[], total:1}, t = 0, playing = false;
+let path = [], FMAP = [], endNode = null, pending = null, choosing = false, pickTimer = null;
 let editing = false, selected = null, dispD = null, lastKey = '', confirmDel = false;
 const saveOpts = () => store.set('bb.opts', opts);
 const saveTeams = () => { if(!store.set('bb.teams', teams)) toast('Could not save on this device (storage full or blocked)'); };
@@ -260,10 +278,10 @@ function spot(v){
   if(typeof v === 'string' && PB.spots[v]) return PB.spots[v].slice();
   return null;
 }
-function resolve(p){
+function resolve(frames){
   const out = []; let o = {}, d = null, ball = '1';
   KS.forEach(k => o[k] = spot(START[k]));
-  (p.frames || []).forEach((f, i) => {
+  frames.forEach((f, i) => {
     o = Object.assign({}, o);
     if(f.o) for(const k in f.o){ const q = spot(f.o[k]); if(q) o[String(k)] = q; }
     if(f.d){ d = Object.assign({}, d || {}); for(const k in f.d){ const q = spot(f.d[k]); if(q) d[String(k)] = q; } }
@@ -278,15 +296,29 @@ function buildTimeline(){
   const segs = []; let tt = 0;
   F.forEach((f, i) => {
     if(i > 0){ const d = Math.max(.15, f.dur); segs.push({type:'move', i, start:tt, end:tt+d}); tt += d; }
-    const h = i === F.length-1 ? Math.max(f.hold, 1.2) : Math.max(0.05, f.hold);
+    const h = i === F.length-1 ? Math.max(f.hold, pending ? .6 : 1.2) : Math.max(0.05, f.hold);
     segs.push({type:'hold', i, start:tt, end:tt+h}); tt += h;
   });
   TL = {segs, total: Math.max(tt, .1)};
 }
 const frameStart = i => { const s = TL.segs.find(s => s.type === 'hold' && s.i === i); return s ? s.start : 0; };
+function flatten(){
+  const frames = [], map = []; let node = play;
+  const add = (n, lvl, parent, oi) => (n.frames || []).forEach((f, j) => { frames.push(f); map.push({node:n, j, lvl, parent, oi}); });
+  add(play, 0, null, -1);
+  for(let d = 0; d < path.length; d++){
+    const o = (node.options || [])[path[d]];
+    if(!o || !(o.frames || []).length){ path.length = d; break; }
+    add(o, d + 1, node, path[d]); node = o;
+  }
+  return {frames, map, node};
+}
+const rawFrame = i => { const m = FMAP[i]; return m.node.frames[m.j]; };
 function rebuild(keepFrame){
   const fi = keepFrame != null ? keepFrame : null;
-  F = resolve(play); buildTimeline();
+  const fl = flatten(); FMAP = fl.map; endNode = fl.node;
+  pending = endNode.options && endNode.options.length ? endNode.options : null;
+  F = resolve(fl.frames); buildTimeline(); renderPath();
   if(fi != null) t = frameStart(clamp(fi, 0, F.length-1));
   t = clamp(t, 0, TL.total - 1e-6);
   lastKey = '';
@@ -530,7 +562,11 @@ function tick(ts){
   const dt = lastTs == null ? 0 : Math.min(.1, (ts - lastTs)/1000); lastTs = ts;
   if(playing){
     t += dt * opts.speed;
-    if(t >= TL.total){ if(opts.loop){ t = 0; dispD = null; } else { t = TL.total - 1e-6; setPlaying(false); } }
+    if(t >= TL.total){
+      if(pending){ t = TL.total - 1e-6; setPlaying(false); showChoices(); }
+      else if(opts.loop){ if(opts.choose === 'random'){ path = []; rebuild(); renderFrames(); } t = 0; dispD = null; }
+      else { t = TL.total - 1e-6; setPlaying(false); }
+    }
   }
   render(dt, !playing);
   requestAnimationFrame(tick);
@@ -541,18 +577,20 @@ function setPlaying(v){
   $('#playBtn').setAttribute('aria-label', v ? 'Pause' : 'Play');
 }
 const curFrame = () => sample(t).i;
-function gotoFrame(i){ setPlaying(false); t = frameStart(clamp(i, 0, F.length-1)); dispD = null; }
+function gotoFrame(i){ hideChoices(); setPlaying(false); t = frameStart(clamp(i, 0, F.length-1)); dispD = null; }
 
 /* ---------------- UI: frames strip ---------------- */
 function renderFrames(){
   const box = $('#frames');
-  box.innerHTML = F.map((f, i) => `<button class="fchip" data-i="${i}" title="${esc(f.note)}">${i+1}</button>`).join('') +
+  box.innerHTML = F.map((f, i) => `<button class="fchip${i > 0 && FMAP[i].lvl !== FMAP[i-1].lvl ? ' br' : ''}" data-i="${i}" title="${esc(f.note)}">${i+1}</button>`).join('') +
+    (pending ? '<button class="fchip fork" id="forkChip" title="Decision point">?</button>' : '') +
     (editing ? '<button class="fchip add" id="addFrameChip">+ Step</button>' : '');
   lastKey = '';
 }
 $('#frames').addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
   if(b.id === 'addFrameChip') return addFrame();
+  if(b.id === 'forkChip'){ gotoFrame(F.length - 1); t = TL.total - 1e-6; return showChoices(); }
   gotoFrame(+b.dataset.i);
 });
 
@@ -566,7 +604,7 @@ function renderPlays(){
   order.forEach(c => {
     if(!groups[c]) return;
     h += `<div class="sect"><h3>${esc(c)}</h3><div class="plist">` + groups[c].map(p =>
-      `<button class="pitem${play && p.id === play.id ? ' on' : ''}" data-id="${esc(p.id)}"><span class="nm">${esc(p.name)}<span class="sub">${(p.frames||[]).length} steps · ${esc(defName(p.defense || 'man'))}</span></span>${p.builtin ? (p.sample ? '<span class="tag">Sample</span>' : '') : '<span class="tag mine">Mine</span>'}</button>`
+      `<button class="pitem${play && p.id === play.id ? ' on' : ''}" data-id="${esc(p.id)}"><span class="nm">${esc(p.name)}<span class="sub">${(p.frames||[]).length} steps${countOpts(p) ? ` · ${countOpts(p)} choices` : ''} · ${esc(defName(p.defense || 'man'))}</span></span>${p.builtin ? (p.sample ? '<span class="tag">Sample</span>' : '') : '<span class="tag mine">Mine</span>'}</button>`
     ).join('') + '</div></div>';
   });
   h += `<div class="sect"><h3>Share &amp; back up</h3><div class="row"><button class="btn" id="exportBtn">Export</button><button class="btn" id="importBtn">Import</button></div>
@@ -586,7 +624,7 @@ function selectPlay(id, keepT){
   if(!p) return;
   play = p.builtin ? p : myPlays.find(m => m.id === p.id);
   store.set('bb.sel', play.id);
-  setPlaying(false); rebuild(); if(!keepT) t = 0; dispD = null; selected = null;
+  setPlaying(false); hideChoices(); path = []; rebuild(); if(!keepT) t = 0; dispD = null; selected = null;
   $('#pTitle').textContent = play.name || 'Untitled play';
   $('#pMeta').textContent = [play.category || 'Other', defName(play.defense || 'man')].join(' · ');
   $('#pDesc').textContent = play.description || '';
@@ -712,12 +750,12 @@ $('#tabs').addEventListener('click', e => {
 /* ---------------- editing ---------------- */
 function startEdit(){
   if(!play) return;
-  const fi = curFrame();
+  const fi = curFrame(), keepPath = path.slice();
   if(play.builtin){
     const c = clone(play); delete c.builtin; delete c.sample; c.id = newId(); c.name = play.name + ' (my copy)';
-    myPlays.push(c); saveMine(); selectPlay(c.id); toast('Made your own copy to edit');
+    myPlays.push(c); saveMine(); selectPlay(c.id); path = keepPath; rebuild(); renderFrames(); toast('Made your own copy to edit');
   }
-  editing = true; selected = null; setPlaying(false); gotoFrame(fi);
+  editing = true; selected = null; setPlaying(false); hideChoices(); gotoFrame(fi);
   document.body.classList.add('editing');
   $('#editHead').hidden = false; $('#tabs').hidden = true;
   ['plays','team','display'].forEach(n => $('#pane-' + n).hidden = true);
@@ -754,23 +792,24 @@ function renderEdit(){
 }
 function renderEditFrame(i){
   const box = $('#eFrame'); if(!box) return;
-  const f = play.frames[i], R = F[i];
+  const f = rawFrame(i), R = F[i], M = FMAP[i];
   const sel = selected ? `<div class="selbox"><strong>Player ${selected} (${POSN[selected]})${teams.off.players[selected].name ? ' · ' + esc(teams.off.players[selected].name) : ''}</strong>
       <div class="row"><button class="btn" id="eGive" ${R.ball === selected ? 'disabled' : ''}>Give ball</button>
       <button class="btn${R.screens.has(selected) ? ' on' : ''}" id="eScreen">Sets a screen</button>
       <button class="btn" id="eReset" ${i === 0 || !(f.o && f.o[selected]) ? 'disabled' : ''}>Undo move</button></div></div>`
     : '<p class="hint">Drag players to where they go in this step. Drag the ball onto a player to pass, or onto the rim to shoot. Tap a player for more options.</p>';
-  box.innerHTML = `<h3>Step ${i+1} of ${F.length}</h3>
+  box.innerHTML = `<h3>Step ${i+1} of ${F.length}${M.lvl ? ' · option ' + esc(M.node.label || '') : ''}</h3>
     <label class="f">What happens (shown to the kids)<textarea id="eNote" rows="3">${esc(f.note || '')}</textarea></label>
     <div class="row">
       <label class="f" style="flex:1">Move time (s)<input type="number" id="eDur" min="0.2" max="6" step="0.1" value="${R.dur}" ${i === 0 ? 'disabled' : ''}></label>
       <label class="f" style="flex:1">Pause (s)<input type="number" id="eHold" min="0" max="10" step="0.1" value="${R.hold}"></label>
     </div>
     ${sel}
-    <div class="row"><button class="btn" id="eAdd">Add step after</button><button class="btn" id="eShot" ${R.ball === 'rim' ? 'disabled' : ''}>Shoot</button><button class="btn danger" id="eDelFrame" ${F.length < 2 ? 'disabled' : ''}>Delete step</button></div>`;
+    ${branchUI(i)}
+    <div class="row"><button class="btn" id="eAdd">Add step after</button><button class="btn" id="eShot" ${R.ball === 'rim' ? 'disabled' : ''}>Shoot</button><button class="btn danger" id="eDelFrame" ${M.node.frames.length < 2 ? 'disabled' : ''}>Delete step</button></div>`;
 }
 $('#pane-edit').addEventListener('input', e => {
-  const x = e.target, i = curFrame(), f = play.frames[i];
+  const x = e.target, i = curFrame(), f = rawFrame(i);
   if(x.id === 'ePName'){ play.name = x.value; refreshHead(); }
   else if(x.id === 'ePDesc'){ play.description = x.value; refreshHead(); }
   else if(x.id === 'eNote'){ f.note = x.value; $('#capTxt').textContent = x.value; F[i].note = x.value; clearTimeout(saveTimer); saveTimer = setTimeout(saveMine, 300); return; }
@@ -783,7 +822,7 @@ $('#pane-edit').addEventListener('change', e => {
   const x = e.target, i = curFrame();
   if(x.id === 'ePCat'){ play.category = x.value; refreshHead(); saveMine(); }
   if(x.id === 'ePDef'){
-    if(x.value === 'manual' && !play.frames.some(f => f.d)) seedManual();
+    if(x.value === 'manual' && !F.some(f => f.d)) seedManual();
     play.defense = x.value; dispD = null; changed(i); refreshHead();
   }
 });
@@ -792,21 +831,21 @@ function seedManual(){
   F.forEach((R, i) => {
     const T = targets(sid, R.o, R.ball === 'rim' ? RIM : R.o[R.ball], R.ball, null);
     const d = {}; KS.forEach(k => d[k] = [r1(T[k][0]), r1(T[k][1])]);
-    play.frames[i].d = d;
+    rawFrame(i).d = d;
   });
 }
 $('#pane-edit').addEventListener('click', e => {
   const b = e.target.closest('button'); if(!b) return;
-  const i = curFrame(), f = play.frames[i];
+  const i = curFrame(), f = rawFrame(i), M = FMAP[i];
   switch(b.id){
     case 'eAdd': return addFrame();
     case 'eShot': f.ball = 'rim'; if(!f.passAt && f.o && f.o[F[i-1] ? F[i-1].ball : '']) f.passAt = .5; changed(i); renderEditFrame(i); return;
     case 'eDelFrame':
-      if(play.frames.length < 2) return;
-      if(i === 0){ // fold step 1's spots into step 2 so the start stays sensible
+      if(M.node.frames.length < 2) return;
+      if(M.node === play && M.j === 0){ // fold step 1's spots into step 2 so the start stays sensible
         const n = play.frames[1]; n.o = Object.assign({}, F[1].o); n.ball = F[1].ball; if(F[1].d) n.d = Object.assign({}, F[1].d);
       }
-      play.frames.splice(i, 1); changed(Math.min(i, play.frames.length - 1)); renderFrames(); renderEditFrame(curFrame()); return;
+      M.node.frames.splice(M.j, 1); changed(Math.min(i, F.length - 2)); renderFrames(); renderEditFrame(curFrame()); return;
     case 'eGive': f.ball = +selected; changed(i); renderEditFrame(i); return;
     case 'eScreen': { const s = new Set((f.screens || []).map(String)); s.has(selected) ? s.delete(selected) : s.add(selected); f.screens = [...s].map(Number); changed(i); renderEditFrame(i); return; }
     case 'eReset': if(f.o){ delete f.o[selected]; } changed(i); renderEditFrame(i); return;
@@ -816,9 +855,55 @@ $('#pane-edit').addEventListener('click', e => {
       myPlays = myPlays.filter(p => p.id !== play.id); saveMine(); confirmDel = false; stopEdit(); selectPlay(allPlays()[0].id); toast('Play deleted'); return;
   }
 });
+function branchUI(i){
+  const M = FMAP[i], node = M.node, isLast = M.j === node.frames.length - 1;
+  let h = '';
+  if(M.lvl){
+    h += `<div class="selbox"><strong>Option ${LET[M.oi]}</strong>
+      <label class="f">Option name (shown on the button)<input type="text" id="eBLabel" value="${esc(node.label || '')}"></label>
+      <label class="f">How often when random (weight)<input type="number" id="eBWeight" min="0.1" max="10" step="0.5" value="${node.weight > 0 ? node.weight : 1}"></label>
+      <div class="row"><button class="btn danger" id="eBDel">Delete this option</button></div></div>`;
+  }
+  if(isLast){
+    if(node.options && node.options.length){
+      h += `<div class="selbox"><strong>Decision after this step: ${node.options.length} option${node.options.length > 1 ? 's' : ''}</strong>
+        <label class="f">Question shown to the kids<input type="text" id="eAsk" value="${esc(node.choice || '')}" placeholder="What is the read?"></label>
+        <div class="row">${node.options.length < 4 ? '<button class="btn" id="eOptAdd">Add another option</button>' : ''}<button class="btn" id="eOptShow">Pick option to edit</button></div></div>`;
+    } else {
+      h += `<div class="row"><button class="btn" id="eOptAdd">Add a choice after this step</button></div>
+        <p class="hint">A choice stops the play here and lets you (or the random picker) choose what happens next.</p>`;
+    }
+  }
+  return h;
+}
+$('#pane-edit').addEventListener('input', e => {
+  const x = e.target; if(!['eBLabel','eBWeight','eAsk'].includes(x.id)) return;
+  const M = FMAP[curFrame()];
+  if(x.id === 'eBLabel'){ M.node.label = x.value; renderPath(); }
+  if(x.id === 'eBWeight'){ const v = parseFloat(x.value); if(v > 0) M.node.weight = v; }
+  if(x.id === 'eAsk') M.node.choice = x.value;
+  clearTimeout(saveTimer); saveTimer = setTimeout(saveMine, 300);
+});
+$('#pane-edit').addEventListener('click', e => {
+  const b = e.target.closest('button'); if(!b) return;
+  const i = curFrame(), M = FMAP[i];
+  if(b.id === 'eOptAdd'){
+    const node = M.node; node.options = node.options || [];
+    const n = node.options.length;
+    node.options.push({label:'Option ' + LET[n], frames:[{note:'', dur:1.2}]});
+    path = path.slice(0, M.lvl).concat([n]); changed(); renderFrames();
+    gotoFrame(FMAP.findIndex(m => m.lvl === M.lvl + 1)); renderEditFrame(curFrame()); toast('Option ' + LET[n] + ' added. Drag players for what happens.');
+  }
+  if(b.id === 'eOptShow'){ gotoFrame(F.length - 1); t = TL.total - 1e-6; showChoices(); }
+  if(b.id === 'eBDel'){
+    if(b.dataset.armed !== '1'){ b.dataset.armed = '1'; b.textContent = 'Tap again to delete option'; return; }
+    M.parent.options.splice(M.oi, 1); if(!M.parent.options.length) delete M.parent.options;
+    path.length = M.lvl - 1; changed(); renderFrames(); gotoFrame(F.length - 1); renderEditFrame(curFrame()); toast('Option deleted');
+  }
+});
 function addFrame(){
   const i = curFrame();
-  play.frames.splice(i + 1, 0, {note:'', dur:1.2});
+  const M = FMAP[i]; M.node.frames.splice(M.j + 1, 0, {note:'', dur:1.2});
   changed(i + 1); renderFrames(); renderEditFrame(i + 1); selected = null;
   const n = $('#eNote'); if(n) n.focus();
 }
@@ -840,7 +925,7 @@ svg.addEventListener('pointermove', e => {
   if(!drag) return;
   if(!drag.moved && Math.hypot(e.clientX - drag.start[0], e.clientY - drag.start[1]) < 5) return;
   drag.moved = true;
-  const p = courtPt(e), f = play.frames[drag.i];
+  const p = courtPt(e), f = rawFrame(drag.i);
   if(drag.kind === 'o'){ f.o = f.o || {}; f.o[drag.k] = [r1(p[0]), r1(p[1])]; rebuild(drag.i); }
   else if(drag.kind === 'd'){ f.d = f.d || {}; f.d[drag.k] = [r1(p[0]), r1(p[1])]; rebuild(drag.i); dispD = null; }
   else if(drag.kind === 'ball'){ const s = toS(p); ballBody.setAttribute('transform', `translate(${s[0]} ${s[1]}) scale(1.15)`); drag.p = p; }
@@ -848,7 +933,7 @@ svg.addEventListener('pointermove', e => {
 function endDrag(e){
   if(!drag) return;
   const d = drag; drag = null; document.body.classList.remove('dragging');
-  const f = play.frames[d.i];
+  const f = rawFrame(d.i);
   if(d.kind === 'ball' && d.moved && d.p){
     let best = null, bd = 1.3; KS.forEach(k => { const dd = dist(F[d.i].o[k], d.p); if(dd < bd){ bd = dd; best = k; } });
     if(dist(d.p, RIM) < 1.1) best = 'rim';
@@ -862,13 +947,96 @@ function endDrag(e){
 svg.addEventListener('pointerup', endDrag);
 svg.addEventListener('pointercancel', endDrag);
 
+/* ---------------- choices (branching plays) ---------------- */
+const OPTC = ['#0891b2','#9333ea','#16a34a','#ca8a04'];
+const LET = 'ABCD';
+function countOpts(n){ let c = 0; (n.options || []).forEach(o => { c++; c += countOpts(o); }); return c; }
+function nodeAt(lvl){ let n = play; for(let d = 0; d < lvl; d++) n = n.options[path[d]]; return n; }
+function renderPath(){
+  const bar = $('#pathbar'); if(!bar) return;
+  if(!countOpts(play)){ bar.hidden = true; return; }
+  bar.hidden = false;
+  let h = '<span>Path:</span><span>' + esc(play.name || 'Play') + '</span>';
+  path.forEach((ix, d) => { const o = nodeAt(d).options[ix]; h += `<span>›</span><button class="crumb" data-lvl="${d}" title="Pick a different option here">${esc(o.label || 'Option ' + LET[ix])}</button>`; });
+  if(pending) h += '<span>›</span><span>?</span>';
+  bar.innerHTML = h;
+}
+$('#pathbar').addEventListener('click', e => {
+  const b = e.target.closest('.crumb'); if(!b) return;
+  setPlaying(false); path.length = +b.dataset.lvl; rebuild(); renderFrames();
+  t = TL.total - 1e-6; dispD = null; showChoices();
+});
+function drawGhosts(){
+  const g = $('#gGhost'); g.innerHTML = '';
+  if(!pending) return;
+  const last = F[F.length - 1];
+  pending.forEach((o, n) => {
+    const f = (o.frames || [])[0] || {}, col = OPTC[n % 4];
+    const G = el('g', {fill:'none', stroke:col, 'stroke-width':.08, 'stroke-dasharray':'.25 .14', 'stroke-linecap':'round', opacity:.9}, g);
+    let anchor = null;
+    if(f.o) for(const k in f.o){ const a = last.o[k], q = spot(f.o[k]); if(!a || !q || dist(a, q) < .25) continue;
+      const seg = trim(toS(a), toS(q), .55, .45); if(!seg) continue;
+      el('line', {x1:seg[0][0], y1:seg[0][1], x2:seg[1][0], y2:seg[1][1]}, G); anchor = anchor || [(seg[0][0]+seg[1][0])/2, (seg[0][1]+seg[1][1])/2]; }
+    if(f.ball != null && String(f.ball) !== last.ball && last.ball !== 'rim'){
+      const from = toS(last.o[last.ball]), to = toS(String(f.ball) === 'rim' ? RIM : (last.o[String(f.ball)] || RIM));
+      const seg = trim(from, to, .5, .6);
+      if(seg){ el('line', {x1:seg[0][0], y1:seg[0][1], x2:seg[1][0], y2:seg[1][1]}, G); anchor = anchor || [(seg[0][0]+seg[1][0])/2, (seg[0][1]+seg[1][1])/2]; }
+    }
+    if(!anchor){ const h = toS(last.ball === 'rim' ? RIM : last.o[last.ball]); anchor = [h[0] + .9, h[1] - .9 + n*.7]; }
+    const L = el('g', {}, g);
+    el('circle', {cx:anchor[0], cy:anchor[1], r:.36, fill:col, stroke:'#fff', 'stroke-width':.06}, L);
+    const tx = el('text', {x:anchor[0], y:anchor[1] + .02, 'text-anchor':'middle', 'dominant-baseline':'central', fill:'#fff', 'font-family':'Barlow Condensed, Arial Narrow, sans-serif', 'font-weight':700, 'font-size':.46}, L);
+    tx.textContent = LET[n];
+  });
+}
+function showChoices(){
+  if(!pending) return;
+  clearTimeout(pickTimer); choosing = true; drawGhosts();
+  const box = $('#choices');
+  const q = endNode.choice || 'What is the read?';
+  box.innerHTML = `<div class="q">${esc(q)}</div><div class="opts">` + pending.map((o, n) =>
+    `<button class="opt" data-n="${n}"><i style="background:${OPTC[n % 4]}">${LET[n]}</i>${esc(o.label || 'Option ' + LET[n])}</button>`).join('') +
+    `</div>${opts.choose === 'random' ? '<span class="hint">Picking at random…</span>' : ''}`;
+  box.hidden = false; $('#caption').hidden = true;
+  if(opts.choose === 'random' && !editing){
+    const tot = pending.reduce((a, o) => a + (o.weight > 0 ? o.weight : 1), 0);
+    let r = Math.random() * tot, win = 0;
+    for(let n = 0; n < pending.length; n++){ r -= pending[n].weight > 0 ? pending[n].weight : 1; if(r <= 0){ win = n; break; } }
+    const btns = [...box.querySelectorAll('.opt')]; let step = 0; const spins = 4 + win + pending.length * 2;
+    const spin = () => {
+      btns.forEach((b, n) => b.classList.toggle('lit', n === step % btns.length));
+      if(step >= spins - 1 && step % btns.length === win){ btns.forEach((b, n) => b.classList.toggle('dim', n !== win)); pickTimer = setTimeout(() => pick(win), 900); return; }
+      step++; pickTimer = setTimeout(spin, 70 + step * 7);
+    };
+    spin();
+  }
+}
+function hideChoices(){ clearTimeout(pickTimer); choosing = false; $('#choices').hidden = true; $('#caption').hidden = false; $('#gGhost').innerHTML = ''; }
+$('#choices').addEventListener('click', e => { const b = e.target.closest('.opt'); if(b && (opts.choose === 'ask' || editing)) pick(+b.dataset.n); });
+function pick(n){
+  if(!pending || !pending[n]) return;
+  const at = TL.total; hideChoices();
+  path.push(n); rebuild(); renderFrames(); t = at; lastKey = '';
+  if(editing){ gotoFrame(FMAP.findIndex(m => m.lvl === path.length)); renderEditFrame(curFrame()); }
+  else setPlaying(true);
+}
+const chooseSeg = $('#chooseSeg');
+const syncChoose = () => chooseSeg.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === opts.choose));
+chooseSeg.addEventListener('click', e => { const b = e.target.closest('button'); if(!b) return; opts.choose = b.dataset.v; saveOpts(); syncChoose(); if(choosing) showChoices(); });
+syncChoose();
+
 /* ---------------- transport ---------------- */
-$('#playBtn').onclick = () => { if(!playing && t >= TL.total - .01) t = 0; if(!playing) dispD = dispD; setPlaying(!playing); };
-$('#restartBtn').onclick = () => gotoFrame(0);
+$('#playBtn').onclick = () => {
+  if(choosing) return;
+  if(!playing && t >= TL.total - .01){ if(pending){ showChoices(); return; } restart(); }
+  setPlaying(!playing);
+};
+function restart(){ hideChoices(); path = []; rebuild(); renderFrames(); t = 0; dispD = null; }
+$('#restartBtn').onclick = () => { setPlaying(false); restart(); };
 $('#prevBtn').onclick = () => { const s = sample(t); gotoFrame(s.moving ? s.i - 1 : s.i - 1); };
-$('#nextBtn').onclick = () => gotoFrame(curFrame() + 1);
+$('#nextBtn').onclick = () => { if(curFrame() >= F.length - 1 && pending){ gotoFrame(F.length - 1); t = TL.total - 1e-6; showChoices(); } else gotoFrame(curFrame() + 1); };
 const scrub = $('#scrub');
-scrub.addEventListener('input', () => { scrubbing = true; setPlaying(false); t = scrub.value / 1000 * TL.total; t = clamp(t, 0, TL.total - 1e-6); });
+scrub.addEventListener('input', () => { scrubbing = true; hideChoices(); setPlaying(false); t = scrub.value / 1000 * TL.total; t = clamp(t, 0, TL.total - 1e-6); });
 scrub.addEventListener('change', () => { scrubbing = false; });
 $('#speedSel').value = String(opts.speed);
 $('#speedSel').onchange = e => { opts.speed = +e.target.value; saveOpts(); };
@@ -887,6 +1055,7 @@ $('#presentBtn').onclick = () => {
 };
 document.addEventListener('keydown', e => {
   if(e.target.closest('input, textarea, select')) return;
+  if(choosing && opts.choose === 'ask'){ const n = 'abcd'.indexOf(e.key.toLowerCase()); const m = '1234'.indexOf(e.key); const ix = n >= 0 ? n : m; if(ix >= 0 && pending[ix]){ e.preventDefault(); return pick(ix); } }
   if(e.code === 'Space'){ e.preventDefault(); $('#playBtn').click(); }
   else if(e.key === 'ArrowRight'){ e.preventDefault(); $('#nextBtn').click(); }
   else if(e.key === 'ArrowLeft'){ e.preventDefault(); $('#prevBtn').click(); }

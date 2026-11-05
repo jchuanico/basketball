@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Basketball coaching tools: animated playbook and more.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏀</text></svg>">
+<title>Basketball</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
+<style>
+:root{--bg:#e7ebef;--panel:#fff;--line:#d0d8df;--ink:#121a22;--muted:#56636f;--accent:#d9480f;
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;--body:"Barlow","Segoe UI",system-ui,sans-serif}
+@media (prefers-color-scheme: dark){:root{--bg:#0e1318;--panel:#161d24;--line:#2a3541;--ink:#e7ecf1;--muted:#8e9baa;--accent:#f76707;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 var(--body)}
+.wrap{max-width:960px;margin:0 auto;padding:40px max(16px,env(safe-area-inset-left,0px)) 60px max(16px,env(safe-area-inset-right,0px))}
+h1{font-family:var(--display);font-size:clamp(44px,9vw,84px);line-height:.9;margin:0;text-transform:uppercase;letter-spacing:.01em}
+h1 span{color:var(--accent)}
+.lede{color:var(--muted);max-width:56ch;margin:12px 0 32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}
+.card{display:flex;flex-direction:column;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;color:inherit;text-decoration:none}
+a.card:hover{border-color:var(--accent)}
+.card svg{width:100%;height:auto;border-radius:8px;display:block}
+.card h2{margin:0;font-family:var(--display);font-size:26px;text-transform:uppercase;letter-spacing:.02em}
+.card p{margin:0;color:var(--muted)}
+.card.soon{opacity:.6}
+.pill{align-self:flex-start;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--line);border-radius:999px;padding:2px 8px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Basket<span>ball</span></h1>
+  <p class="lede">Coaching tools for the team. Pick an app.</p>
+  <div class="grid">
+    <a class="card" href="playbook/">
+      <svg viewBox="0 0 160 100" aria-hidden="true">
+        <rect width="160" height="100" fill="#d9ae74"/>
+        <g fill="none" stroke="#fff" stroke-width="1.6">
+          <rect x="58" y="0" width="44" height="52" fill="rgba(150,40,10,.55)"/>
+          <path d="M14 0v12a66 66 0 0 0 132 0V0"/><circle cx="80" cy="52" r="16"/><line x1="0" y1="99" x2="160" y2="99"/>
+        </g>
+        <path d="M80 82 L60 44" stroke="#16202a" stroke-width="1.8" fill="none" stroke-dasharray="4 3"/>
+        <path d="M36 40 C 50 30, 66 20, 74 14" stroke="#16202a" stroke-width="1.8" fill="none"/>
+        <g stroke="#fff" stroke-width="1.5"><circle cx="80" cy="82" r="7" fill="#e8590c"/><circle cx="36" cy="44" r="7" fill="#e8590c"/><circle cx="124" cy="44" r="7" fill="#e8590c"/><circle cx="20" cy="88" r="7" fill="#e8590c"/><circle cx="140" cy="88" r="7" fill="#e8590c"/>
+        <circle cx="78" cy="70" r="6" fill="#1f5fa8"/><circle cx="44" cy="36" r="6" fill="#1f5fa8"/><circle cx="112" cy="40" r="6" fill="#1f5fa8"/><circle cx="68" cy="22" r="6" fill="#1f5fa8"/><circle cx="96" cy="26" r="6" fill="#1f5fa8"/></g>
+      </svg>
+      <h2>Playbook</h2>
+      <p>Animated whiteboard. Watch offense and defense move step by step as the ball moves.</p>
+    </a>
+    <div class="card soon">
+      <span class="pill">Coming later</span>
+      <h2>Game Tracker</h2>
+      <p>Stats and lineups from game film.</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

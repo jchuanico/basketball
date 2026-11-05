@@ -20,6 +20,18 @@
      hold     seconds to pause on this step (default 0.5)
      passAt   0-1, how far through the move the pass/shot leaves (default 0)
    ===================================================================== */
+/* Shared opening for the Suns set (both endings use it). */
+var SUNS_START = [
+  { note: '1 brings the ball up the right side. 2 on the right wing, 3 in the right corner, 4 on the left block, 5 on the left wing.',
+    o: { 1: [12.6, 9.4], 2: 'rwing', 3: 'rcorner', 4: 'lblock', 5: 'lwing' }, ball: 1, hold: 1.4 },
+  { note: '1 dribbles to the strong side (right).', o: { 1: 'rslot' }, dur: 1.5 },
+  { note: '1 dribbles toward 2. 2 cuts through the lane.', o: { 1: [6.7, 11.3], 2: [2.0, 8.8] }, dur: 1.1 },
+  { note: '2 keeps going to the left corner. 3 comes up from the corner toward 1.', o: { 2: 'lcorner', 3: [5.0, 12.7] }, dur: 1.2 },
+  { note: 'Handoff: 1 hands the ball to 3.', o: { 3: [5.9, 12.2] }, ball: 3, passAt: 0.6, dur: 0.7, hold: 0.6 },
+  { note: '1 clears to the top. 4 comes across and sets a screen for 3.', o: { 1: [8.4, 9.0], 4: [5.9, 10.5] }, screens: [4], dur: 1.3, hold: 0.7 },
+  { note: '3 drives off the screen hard to the basket.', o: { 3: [2.9, 8.8] }, dur: 1.1, hold: 0.4 }
+];
+
 window.PLAYBOOK = {
   spots: {
     top:     [8.6, 7.5],
@@ -64,6 +76,27 @@ window.PLAYBOOK = {
   },
 
   plays: [
+    {
+      id: 'suns',
+      name: 'Suns',
+      category: 'Offense',
+      defense: 'man',
+      description: 'Strong-side handoff to 3, then a screen from 4. 3 drives and finishes at the rim.',
+      frames: SUNS_START.concat([
+        { note: '3 finishes with the layup.', o: { 3: [1.9, 8.2] }, ball: 'rim', passAt: 0.5, dur: 0.8 }
+      ])
+    },
+    {
+      id: 'suns-kick',
+      name: 'Suns – Kick Out',
+      category: 'Offense',
+      defense: 'man',
+      description: 'Same as Suns, but when the defense collapses on the drive, 3 kicks it out for an open shot.',
+      frames: SUNS_START.concat([
+        { note: 'The defense collapses on 3. 3 kicks it out to 2 in the left corner.', ball: 2, dur: 0.9, hold: 0.5 },
+        { note: '2 shoots the open corner three.', ball: 'rim', dur: 1.0 }
+      ])
+    },
     {
       id: 'sample-give-and-go',
       name: 'Give & Go',
